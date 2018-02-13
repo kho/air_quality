@@ -145,7 +145,8 @@ class CCS811(object):
 
 def main():
     throttle = util.Throttle(60)
-    poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLScsxaGES6uXJMzOmJDOpCVJCjaX8EZpAb1HOx6McEIwVqGeFw/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
+    poster = util.GoogleFormPoster(
+        'https://docs.google.com/forms/d/e/1FAIpQLScsxaGES6uXJMzOmJDOpCVJCjaX8EZpAb1HOx6McEIwVqGeFw/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
     with smbus2.SMBusWrapper(1) as bus:
         dev = CCS811(bus, 0x5a)
         assert dev.is_device()
@@ -159,7 +160,8 @@ def main():
                 elif status.data_ready:
                     result = dev.result()
                     print(result)
-                    print(throttle.maybe_run(lambda: poster.post(None, [result.e_co2, result.tvoc])))
+                    print(throttle.maybe_run(lambda: poster.post(
+                        None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))
             except Exception as e:
                 print(e)
             time.sleep(1)
