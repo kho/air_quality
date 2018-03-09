@@ -1,5 +1,6 @@
 import collections
 import smbus2  # pip install smbus2
+import sys
 import time
 
 import util
@@ -45,7 +46,7 @@ class RawData(collections.namedtuple('RawData', ['current', 'voltage'])):
 
     def __new__(cls, word):
         return super(RawData, cls).__new__(cls, current=word >> 10,
-                                           voltage=float(word & 0x20) / 0x20 * 1.65)
+                                           voltage=word & 0x3ff)
 
 
 class Result(collections.namedtuple('Result', ['e_co2', 'tvoc', 'status', 'error', 'raw'])):
@@ -124,6 +125,36 @@ class CCS811(object):
     def result(self):
         return Result(self.bus.read_i2c_block_data(self.addr, 0x2, 8))
 
+    def baseline(self):
+        return self.bus.read_word_data(self.addr, 0x11)
+
+    def set_baseline(self, word):
+        self.bus.write_word_data(self.addr, 0x11, 0xffff & word)
+
+    def save_baseline(self, prefix, max_keep=30):
+        baseline = self.baseline()
+        path = prefix + '.' + hex(self.addr)
+        with open(path, 'a') as f:
+            pass
+        with open(path) as f:
+            baselines = [int(i) for i in f]
+        with open(path, 'w') as f:
+            for i in baselines[:max_keep - 1]:
+                print(i, file=f)
+            print(baseline, file=f)
+        return hex(baseline)
+
+    def maybe_load_baseline(self, prefix):
+        path = prefix + '.' + hex(self.addr)
+        try:
+            with open(path) as f:
+                baselines = [int(i) for i in f]
+        except IOError:
+            baselines = None
+        if baselines:
+            print('setting baseline to', baselines[-1])
+            self.set_baseline(baselines[-1])
+
     def maybe_start_app(self, max_tries=100):
         num_tries = 0
         while max_tries <= 0 or num_tries < max_tries:
@@ -144,13 +175,25 @@ class CCS811(object):
 
 
 def main():
+    try:
+        addr = int(sys.argv[1], 16)
+    except:
+        addr = 0x5a
+    assert addr in (0x5a, 0x5b)
+    print('addr', hex(addr))
     throttle = util.Throttle(60)
-    poster = util.GoogleFormPoster(
+    if addr == 0x5a:
+        poster = util.GoogleFormPoster(
         'https://docs.google.com/forms/d/e/1FAIpQLScsxaGES6uXJMzOmJDOpCVJCjaX8EZpAb1HOx6McEIwVqGeFw/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
+    else:
+        poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLSeOFDSIc_vW59OKUwnwN1jf0D9qm7vZS5ISo0YgSNhd0rwW1A/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
+    baseline_throttle = util.Throttle(24 * 3600)
+    baseline_throttle.maybe_run(lambda: None)
     with smbus2.SMBusWrapper(1) as bus:
-        dev = CCS811(bus, 0x5a)
+        dev = CCS811(bus, addr)
         assert dev.is_device()
         dev.maybe_start_app()
+        dev.maybe_load_baseline('baseline')
         dev.switch_mode(1)
         while True:
             try:
@@ -160,8 +203,11 @@ def main():
                 elif status.data_ready:
                     result = dev.result()
                     print(result)
-                    print(throttle.maybe_run(lambda: poster.post(
-                        None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))
+                    if result.e_co2 <= 8192 and result.tvoc <= 1187:
+                        print(throttle.maybe_run(lambda: poster.post(
+                            None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))
+                        baseline_throttle.maybe_run(
+                            lambda: dev.save_baseline('baseline'))
             except Exception as e:
                 print(e)
             time.sleep(1)
