@@ -1,5 +1,7 @@
 import calendar
 import contextlib
+import fcntl
+import os
 import requests
 import time
 import urllib
@@ -115,3 +117,14 @@ def gpio(inputs=(), outputs=()):
 def dump(v, path):
     with open(path, 'w') as f:
         print(str(v), file=f)
+
+
+@contextlib.contextmanager
+def flock(path):
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_TRUNC)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)

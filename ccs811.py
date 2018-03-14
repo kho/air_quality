@@ -173,6 +173,45 @@ class CCS811(object):
         raise RuntimeError(
             'failed to start app after %d tries' % num_tries)
 
+def ccs811_loop(addr):
+
+    def log(*args, **kwargs):
+        print('CCS811.{:x}:'.format(addr), *args, **kwargs)
+
+    with util.flock('/tmp/tvoc.{}.lock'.format(hex(addr))):
+        status_file = '/tmp/tvoc.{}.txt'.format(hex(addr))
+        throttle = util.Throttle(60)
+        if addr == 0x5a:
+            poster = util.GoogleFormPoster(
+            'https://docs.google.com/forms/d/e/1FAIpQLScsxaGES6uXJMzOmJDOpCVJCjaX8EZpAb1HOx6McEIwVqGeFw/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
+        else:
+            poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLSeOFDSIc_vW59OKUwnwN1jf0D9qm7vZS5ISo0YgSNhd0rwW1A/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
+        baseline_throttle = util.Throttle(24 * 3600)
+        baseline_throttle.maybe_run(lambda: None)
+        with smbus2.SMBusWrapper(1) as bus:
+            dev = CCS811(bus, addr)
+            assert dev.is_device()
+            dev.maybe_start_app()
+            dev.maybe_load_baseline('baseline')
+            dev.switch_mode(1)
+            while True:
+                try:
+                    status = dev.status()
+                    if status.error:
+                        log(dev.error())
+                        util.dump('error', status_file)
+                    elif status.data_ready:
+                        result = dev.result()
+                        util.dump(result.tvoc, status_file)
+                        if result.e_co2 <= 8192 and result.tvoc <= 1187:
+                            log(result, throttle.maybe_run(lambda: poster.post(
+                                None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))
+                            baseline_throttle.maybe_run(
+                                lambda: dev.save_baseline('baseline'))
+                except Exception as e:
+                    print(e)
+                time.sleep(1)
+
 
 def main():
     try:
@@ -181,39 +220,7 @@ def main():
         addr = 0x5a
     assert addr in (0x5a, 0x5b)
     print('addr', hex(addr))
-    status_file = '/tmp/tvoc.{}.txt'.format(hex(addr))
-    throttle = util.Throttle(60)
-    if addr == 0x5a:
-        poster = util.GoogleFormPoster(
-        'https://docs.google.com/forms/d/e/1FAIpQLScsxaGES6uXJMzOmJDOpCVJCjaX8EZpAb1HOx6McEIwVqGeFw/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
-    else:
-        poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLSeOFDSIc_vW59OKUwnwN1jf0D9qm7vZS5ISo0YgSNhd0rwW1A/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
-    baseline_throttle = util.Throttle(24 * 3600)
-    baseline_throttle.maybe_run(lambda: None)
-    with smbus2.SMBusWrapper(1) as bus:
-        dev = CCS811(bus, addr)
-        assert dev.is_device()
-        dev.maybe_start_app()
-        dev.maybe_load_baseline('baseline')
-        dev.switch_mode(1)
-        while True:
-            try:
-                status = dev.status()
-                if status.error:
-                    print(dev.error())
-                    util.dump('error', status_file)
-                elif status.data_ready:
-                    result = dev.result()
-                    print(result)
-                    util.dump(result.tvoc, status_file)
-                    if result.e_co2 <= 8192 and result.tvoc <= 1187:
-                        print(throttle.maybe_run(lambda: poster.post(
-                            None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))
-                        baseline_throttle.maybe_run(
-                            lambda: dev.save_baseline('baseline'))
-            except Exception as e:
-                print(e)
-            time.sleep(1)
+    ccs811_loop(addr)
 
 
 if __name__ == '__main__':

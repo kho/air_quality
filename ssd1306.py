@@ -4,17 +4,18 @@ import subprocess
 import time
 
 import font5x8
+import util
 
 class SSD1306Device(object):
 
     def __init__(self, bus, addr):
         self.bus = bus
         self.addr = addr
-        
+
     def command(self, *bs):
         # print('command', ' '.join(map(hex, bs)))
         self.bus.write_i2c_block_data(self.addr, 0, bs)
-        
+
     def data(self, *bs):
         for i in range(0, len(bs), 32):
             self.bus.write_i2c_block_data(self.addr, 0x40, bs[i:i+32])
@@ -194,23 +195,25 @@ class Display(object):
 
     def run(self):
         while True:
-            self._dev.puts('IP:' + self.get_ip(), row=0)
-            self._dev.puts('PM25:' + self.read_file('/tmp/pm25.txt'), row=1)
-            self._dev.puts('TVOC(a):' + self.read_file('/tmp/tvoc.0x5a.txt'), row=2)
-            self._dev.puts('TVOC(b):' + self.read_file('/tmp/tvoc.0x5b.txt'), row=3)
+            try:
+                self._dev.puts('IP:' + self.get_ip(), row=0)
+                self._dev.puts('PM25:' + self.read_file('/tmp/pm25.txt'), row=1)
+                self._dev.puts('TVOC(a):' + self.read_file('/tmp/tvoc.0x5a.txt'), row=2)
+                self._dev.puts('TVOC(b):' + self.read_file('/tmp/tvoc.0x5b.txt'), row=3)
+            except Exception as e:
+                print(e)
             time.sleep(1)
 
-        
-def main():
-    addr = 0x3c
-    with smbus2.SMBusWrapper(1) as bus:
-        dev = SSD1306Device(bus, addr)
-        dev.initialize()
-        print('init done')
-        try:
-            Display(dev).run()
-        finally:
-            dev.off()
+def display_loop(addr):
+    with util.flock('/tmp/ssd1306.{}.lock'.format(hex(addr))):
+        with smbus2.SMBusWrapper(1) as bus:
+            dev = SSD1306Device(bus, addr)
+            dev.initialize()
+            print('init done')
+            try:
+                Display(dev).run()
+            finally:
+                dev.off()
 
 if __name__ == '__main__':
-    main()
+    display_loop(0x3c)
