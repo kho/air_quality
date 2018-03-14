@@ -111,3 +111,7 @@ def gpio(inputs=(), outputs=()):
         output_channels.append(OutputChannel(o))
     yield tuple(input_channels), tuple(output_channels)
     GPIO.cleanup([_.ch for _ in input_channels + output_channels])
+
+def dump(v, path):
+    with open(path, 'w') as f:
+        print(str(v), file=f)

@@ -140,7 +140,7 @@ class SSD1306Device(object):
         self.puts('This is a very long string with lots of letters. ~~~>_<~~~ @_@')
         n = 0
         while True:
-            self.puts(hex(n), row=1, col=2)
+            self.puts(hex(n), row=1, col=2, wrap=True)
             n += 1
 
     def puts(self, s, row=0, col=0, clear=True, wrap=False):
@@ -196,8 +196,8 @@ class Display(object):
         while True:
             self._dev.puts('IP:' + self.get_ip(), row=0)
             self._dev.puts('PM25:' + self.read_file('/tmp/pm25.txt'), row=1)
-            self._dev.puts('TVOC(0x5a):' + self.read_file('/tmp/tvoc.5a.txt'), row=2)
-            self._dev.puts('TVOC(0x5b):' + self.read_file('/tmp/tvoc.5b.txt'), row=3)
+            self._dev.puts('TVOC(a):' + self.read_file('/tmp/tvoc.0x5a.txt'), row=2)
+            self._dev.puts('TVOC(b):' + self.read_file('/tmp/tvoc.0x5b.txt'), row=3)
             time.sleep(1)
 
         

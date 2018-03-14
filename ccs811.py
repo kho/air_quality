@@ -181,6 +181,7 @@ def main():
         addr = 0x5a
     assert addr in (0x5a, 0x5b)
     print('addr', hex(addr))
+    status_file = '/tmp/tvoc.{}.txt'.format(hex(addr))
     throttle = util.Throttle(60)
     if addr == 0x5a:
         poster = util.GoogleFormPoster(
@@ -200,9 +201,11 @@ def main():
                 status = dev.status()
                 if status.error:
                     print(dev.error())
+                    util.dump('error', status_file)
                 elif status.data_ready:
                     result = dev.result()
                     print(result)
+                    util.dump(result.tvoc, status_file)
                     if result.e_co2 <= 8192 and result.tvoc <= 1187:
                         print(throttle.maybe_run(lambda: poster.post(
                             None, [result.e_co2, result.tvoc, result.raw.current, result.raw.voltage])))

@@ -38,13 +38,16 @@ def generate_pms5003_message(max_bytes=1024):
 if __name__ == '__main__':
     throttle = util.Throttle(60)
     poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLSePbFzMLyEaQVJ9aW-ZRPYsXO8kfm1ay7khmRADiDz0rondYw/viewform?usp=pp_url&entry.1441205787=1970-01-01&entry.1440681565=00:00&entry.1603777044=0&entry.8655809=1&entry.668218130=2&entry.1797950773=3&entry.1371427267=4&entry.1869212283=5&entry.671273885=6&entry.2022906028=7&entry.18109896=8&entry.1464624802=9&entry.2068592484=10&entry.1601194695=11&entry.1795391290=12')
+    status_file = '/tmp/pm25.txt'
     while True:
         try:
             for i in generate_pms5003_message():
                 when = time.gmtime()
                 ints = parse_pms5003_message(i)
                 print(when, ints)
+                util.dump(ints[4], status_file)
                 print(throttle.maybe_run(lambda: poster.post(when, ints)))
         except Exception as e:
             print(e)
+            util.dump('error', status_file)
             time.sleep(1)
