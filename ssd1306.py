@@ -193,8 +193,8 @@ class Display(object):
         except:
             return self.UNK
 
-    def run(self):
-        while True:
+    def run(self, stop=None):
+        while stop is None or not stop.is_set():
             try:
                 self._dev.puts('IP:' + self.get_ip(), row=0)
                 self._dev.puts('PM25:' + self.read_file('/tmp/pm25.txt'), row=1)
@@ -203,15 +203,16 @@ class Display(object):
             except Exception as e:
                 print(e)
             time.sleep(1)
+        print('exit ssd1306')
 
-def display_loop(addr):
+def display_loop(addr, stop=None):
     with util.flock('/tmp/ssd1306.{}.lock'.format(hex(addr))):
         with smbus2.SMBusWrapper(1) as bus:
             dev = SSD1306Device(bus, addr)
             dev.initialize()
             print('init done')
             try:
-                Display(dev).run()
+                Display(dev).run(stop)
             finally:
                 dev.off()
 

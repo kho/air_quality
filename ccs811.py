@@ -173,7 +173,7 @@ class CCS811(object):
         raise RuntimeError(
             'failed to start app after %d tries' % num_tries)
 
-def ccs811_loop(addr):
+def ccs811_loop(addr, stop=None):
 
     def log(*args, **kwargs):
         print('CCS811.{:x}:'.format(addr), *args, **kwargs)
@@ -194,7 +194,7 @@ def ccs811_loop(addr):
             dev.maybe_start_app()
             dev.maybe_load_baseline('baseline')
             dev.switch_mode(1)
-            while True:
+            while stop is None or not stop.is_set():
                 try:
                     status = dev.status()
                     if status.error:
@@ -211,6 +211,7 @@ def ccs811_loop(addr):
                 except Exception as e:
                     print(e)
                 time.sleep(1)
+        print('exit ccs811', hex(addr))
 
 
 def main():
