@@ -1,3 +1,5 @@
+import datetime
+import os
 import re
 import smbus2
 import subprocess
@@ -119,9 +121,9 @@ class SSD1306Device(object):
         self.set_charge_pump(True)
         self.on()
         self.set_all(0)
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.set_all(0xff)
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.set_all(0)
 
 
@@ -168,6 +170,83 @@ class SSD1306Device(object):
             self.set_column_address(col_start)
             self.data(*bs)
 
+    def puts2(self, s, row=0, col=0, clear=True, wrap=False):
+        font = font5x8.Font5x8
+        height = font.rows
+        width = font.cols * 2
+        assert height == 8
+        padding = 1
+        while 128 % (width + padding) != 0:
+            padding += 1
+        padded_width = width + padding
+        bs = []
+        for i in s:
+            offset = ord(i) * font.cols
+            for b in font.bytes[offset:offset + font.cols]:
+                bs.append(b)
+                bs.append(b)
+            bs.extend([0] * padding)
+        if clear:
+            bs.extend([0] * (128 - (col + len(s)) * padded_width))
+        col_start = col * padded_width
+        if not wrap:
+            bs = bs[:128 - col_start]
+
+        def scale2x(b4):
+            b0 = b4 & 1
+            b1 = (b4 >> 1) & 1
+            b2 = (b4 >> 2) & 1
+            b3 = (b4 >> 3) & 1
+            return b0 | (b0 << 1) | (b1 << 2) | (b1 << 3) | (b2 << 4) | (b2 << 5) | (b3 << 6) | (b3 << 7)
+
+        for r in [row, row + 4]:
+            self.set_column_address(col_start)
+            self.set_page_address(r)
+            self.data(*[scale2x(i & 0xf) for i in bs])
+            self.set_page_address(r + 1)
+            self.data(*[scale2x(i >> 4) for i in bs])
+
+    def puts4(self, s, row=0, col=0, clear=True, wrap=False):
+        assert row == 0
+        font = font5x8.Font5x8
+        height = font.rows
+        width = font.cols * 4
+        assert height == 8
+        padding = 1
+        while 128 % (width + padding) != 0:
+            padding += 1
+        padded_width = width + padding
+        bs = []
+        for i in s:
+            offset = ord(i) * font.cols
+            for b in font.bytes[offset:offset + font.cols]:
+                bs.append(b)
+                bs.append(b)
+                bs.append(b)
+                bs.append(b)
+            bs.extend([0] * padding)
+        if clear:
+            bs.extend([0] * (128 - (col + len(s)) * padded_width))
+        col_start = col * padded_width
+        if not wrap:
+            bs = bs[:128 - col_start]
+
+        def scale4x(b2):
+            b0 = b2 & 1
+            b1 = (b2 >> 1) & 1
+            return b0 | (b0 << 1) | (b0 << 2) | (b0 << 3) | (b1 << 4) | (b1 << 5) | (b1 << 6) | (b1 << 7)
+
+        for r in [row, row + 4]:
+            self.set_column_address(col_start)
+            self.set_page_address(r)
+            self.data(*[scale4x(i & 0x3) for i in bs])
+            self.set_page_address(r + 1)
+            self.data(*[scale4x((i >> 2) & 0x3) for i in bs])
+            self.set_page_address(r + 2)
+            self.data(*[scale4x((i >> 4) & 0x3) for i in bs])
+            self.set_page_address(r + 3)
+            self.data(*[scale4x((i >> 6) & 0x3) for i in bs])
+
 class Display(object):
 
     UNK = '???'
@@ -188,21 +267,31 @@ class Display(object):
 
     def read_file(self, path):
         try:
+            if time.time() - os.stat(path).st_mtime > 5 * 60:
+                return self.UNK
             with open(path) as f:
                 return f.read().strip()
         except:
             return self.UNK
 
     def run(self, stop=None):
+        interval = 2
         while stop is None or not stop.is_set():
             try:
                 self._dev.puts('IP:' + self.get_ip(), row=0)
-                self._dev.puts('PM25:' + self.read_file('/tmp/pm25.txt'), row=1)
-                self._dev.puts('TVOC(a):' + self.read_file('/tmp/tvoc.0x5a.txt'), row=2)
-                self._dev.puts('TVOC(b):' + self.read_file('/tmp/tvoc.0x5b.txt'), row=3)
+                self._dev.puts('TIME:' + datetime.datetime.now().strftime('%H:%M:%S'), row=1)
+                self._dev.puts2('PM25:' + self.read_file('/tmp/pm25.txt'), row=2)
+                #self._dev.puts('TVOC(a):' + self.read_file('/tmp/tvoc.0x5a.txt'), row=2)
+                #self._dev.puts('TVOC(b):' + self.read_file('/tmp/tvoc.0x5b.txt'), row=3)
             except Exception as e:
-                print(e)
-            time.sleep(1)
+                print('Exception:', e)
+            time.sleep(interval)
+            for _ in range(4):
+                try:
+                    self._dev.puts4(' ' + self.read_file('/tmp/pm25.txt'))
+                except Exception as e:
+                    print('Exception:', e)
+                time.sleep(interval)
         print('exit ssd1306')
 
 def display_loop(addr, stop=None):
