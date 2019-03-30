@@ -45,7 +45,10 @@ def pm25_loop(stop=None):
                     when = time.gmtime()
                     ints = parse_pms5003_message(i)
                     util.dump(ints[4], status_file)
-                    print('PM25:', ints, throttle.maybe_run(lambda: poster.post(when, ints)))
+                    try:
+                      print('PM25:', ints, throttle.maybe_run(lambda: poster.post(when, ints)))
+                    except:
+                      pass
                     if stop is not None and stop.is_set():
                         break
             except Exception as e:
