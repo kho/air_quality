@@ -18,9 +18,9 @@ signal.signal(signal.SIGTERM, sigterm_handler)
 
 threads = [
     threading.Thread(target=ssd1306.display_loop, args=(0x3c, stop)),
-    threading.Thread(target=pm25.pm25_loop, args=(stop,)),
-    threading.Thread(target=ccs811.ccs811_loop, args=(0x5a, stop)),
-    threading.Thread(target=ccs811.ccs811_loop, args=(0x5b, stop))]
+    threading.Thread(target=pm25.pm25_loop, args=(stop,))]
+    #threading.Thread(target=ccs811.ccs811_loop, args=(0x5a, stop)),
+    #threading.Thread(target=ccs811.ccs811_loop, args=(0x5b, stop))]
 
 
 for _ in threads:
