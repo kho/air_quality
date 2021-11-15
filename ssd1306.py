@@ -296,7 +296,7 @@ class Display(object):
 
 def display_loop(addr, stop=None):
     with util.flock('/tmp/ssd1306.{}.lock'.format(hex(addr))):
-        with smbus2.SMBusWrapper(1) as bus:
+        with smbus2.SMBus(1) as bus:
             dev = SSD1306Device(bus, addr)
             dev.initialize()
             print('init done')

@@ -1,0 +1,9 @@
+[Unit]
+Description=Air quality monitoring
+
+[Service]
+ExecStart=/home/alarm/air_quality/air_quality.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -188,7 +188,7 @@ def ccs811_loop(addr, stop=None):
             poster = util.GoogleFormPoster('https://docs.google.com/forms/d/e/1FAIpQLSeOFDSIc_vW59OKUwnwN1jf0D9qm7vZS5ISo0YgSNhd0rwW1A/viewform?usp=pp_url&entry.806682994=0&entry.1017453344=1&entry.1050656656=2&entry.815754693=3')
         baseline_throttle = util.Throttle(24 * 3600)
         baseline_throttle.maybe_run(lambda: None)
-        with smbus2.SMBusWrapper(1) as bus:
+        with smbus2.SMBus(1) as bus:
             dev = CCS811(bus, addr)
             assert dev.is_device()
             dev.maybe_start_app()

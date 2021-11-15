@@ -2,11 +2,11 @@ import calendar
 import contextlib
 import fcntl
 import os
-import requests
+# import requests
 import time
 import urllib
 
-import RPi.GPIO as GPIO  # yaourt -S python-raspberry-gpio
+# import RPi.GPIO as GPIO  # yaourt -S python-raspberry-gpio
 
 
 class RingBuffer(object):

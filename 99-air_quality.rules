@@ -1,2 +1,6 @@
+# sudo install -m 644 99-air_quality.rules /etc/udev/rules.d
 KERNEL=="ttyAMA0", GROUP="uucp", MODE="0660"
 KERNEL=="i2c-1", GROUP="uucp", MODE="0660"
+KERNEL=="spidev0.0", GROUP="uucp", MODE="0660"
+KERNEL=="spidev0.1", GROUP="uucp", MODE="0660"
+
